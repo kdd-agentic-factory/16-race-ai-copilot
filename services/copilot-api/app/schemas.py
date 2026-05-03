@@ -66,6 +66,19 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = Field(default_factory=list)
 
 
+class RaceCommandCenterChatRequest(BaseModel):
+    query: str
+    user_role: str = "crew_chief"
+    active_session_id: str | None = None
+    circuit: str | None = None
+    stint_id: str | None = None
+    base_setup_id: str | None = None
+    proposed_setup_id: str | None = None
+    vehicle_context: dict[str, Any] = Field(default_factory=dict)
+    context: dict[str, Any] = Field(default_factory=dict)
+    history: list[ChatMessage] = Field(default_factory=list)
+
+
 class CopilotResponse(BaseModel):
     message: str
     evidence: list[Evidence] = Field(default_factory=list)

@@ -4,6 +4,7 @@ from app.schemas import (
     CopilotResponse,
     Evidence,
     EvidenceType,
+    RaceCommandCenterChatRequest,
     Recommendation,
     RecommendationType,
     RiskLevel,
@@ -43,6 +44,16 @@ def build_chat_response(message: str, role: str = "crew_chief") -> CopilotRespon
                 evidence_refs=["rag-cag:pending"],
             )
         )
+    if intent.name == "part_design":
+        recommendations.append(
+            Recommendation(
+                type=RecommendationType.part_design,
+                summary="Propose circuit-specific part concepts only after telemetry, thermal, packaging, and rules evidence are retrieved.",
+                risk=RiskLevel.high,
+                approval_required=True,
+                evidence_refs=["rag-cag:pending"],
+            )
+        )
 
     return CopilotResponse(
         message=(
@@ -59,6 +70,59 @@ def build_chat_response(message: str, role: str = "crew_chief") -> CopilotRespon
         approval_status="required" if needs_approval else "not_required",
         next_step="Route proposed calls through MCP Gateway and Agent Orchestrator.",
     )
+
+
+def build_command_center_response(request: RaceCommandCenterChatRequest) -> CopilotResponse:
+    response = build_chat_response(request.query, request.user_role)
+    intent = classify_intent(request.query)
+    command_center_context = {
+        "active_session_id": request.active_session_id,
+        "circuit": request.circuit,
+        "stint_id": request.stint_id,
+        "base_setup_id": request.base_setup_id,
+        "proposed_setup_id": request.proposed_setup_id,
+        "vehicle_context": request.vehicle_context,
+        "context": request.context,
+    }
+    response.evidence.insert(
+        0,
+        Evidence(
+            source="race-command-center:context",
+            type=EvidenceType.session,
+            confidence=0.0,
+            summary="Command Center context was received, but telemetry, setup, and session evidence must be fetched before claims are made.",
+        ),
+    )
+    route_calls = [
+        ToolCall(
+            tool="race_command_center.context.read",
+            status=ToolStatus.proposed,
+            arguments=command_center_context,
+        ),
+        ToolCall(
+            tool="rag_cag.retrieve",
+            status=ToolStatus.proposed,
+            arguments={"intent": intent.name, "query": request.query, "circuit": request.circuit},
+        ),
+        ToolCall(
+            tool="mcp_gateway.dispatch",
+            status=ToolStatus.proposed,
+            arguments={"intent": intent.name, "downstream_tools": intent.tools},
+        ),
+        ToolCall(
+            tool="agent_orchestrator.plan",
+            status=ToolStatus.proposed,
+            approval_required=intent.approval_required,
+            arguments={"intent": intent.name, "approval_gate": intent.approval_required},
+        ),
+    ]
+    response.tool_calls = route_calls + response.tool_calls
+    response.next_step = (
+        "Race Command Center should submit the proposed route to 16-race-ai-copilot; "
+        "the copilot will request evidence through RAG/CAG, MCP Gateway, Agent Orchestrator, "
+        "and Race Command Center APIs before returning operational claims."
+    )
+    return response
 
 
 def build_setup_recommendation(circuit_type: str, track_temperature_c: float | None, symptoms: list[str]) -> CopilotResponse:

@@ -1,6 +1,7 @@
 import unittest
 
-from app.copilot import build_chat_response
+from app.copilot import build_chat_response, build_command_center_response
+from app.schemas import RaceCommandCenterChatRequest
 
 
 class CopilotTests(unittest.TestCase):
@@ -15,3 +16,19 @@ class CopilotTests(unittest.TestCase):
 
         self.assertEqual(response.approval_status, "required")
         self.assertTrue(response.recommendations[0].approval_required)
+
+    def test_command_center_chat_declares_integration_route(self):
+        response = build_command_center_response(
+            RaceCommandCenterChatRequest(
+                query="Genera un informe pre-GP para el circuito de Jerez.",
+                active_session_id="jerez-fp2",
+                circuit="Jerez",
+            )
+        )
+
+        tools = [tool_call.tool for tool_call in response.tool_calls]
+        self.assertEqual(tools[0], "race_command_center.context.read")
+        self.assertIn("rag_cag.retrieve", tools)
+        self.assertIn("mcp_gateway.dispatch", tools)
+        self.assertIn("agent_orchestrator.plan", tools)
+        self.assertEqual(response.evidence[0].source, "race-command-center:context")

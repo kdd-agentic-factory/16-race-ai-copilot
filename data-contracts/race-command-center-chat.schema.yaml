@@ -1,0 +1,29 @@
+type: object
+required:
+  - query
+properties:
+  query:
+    type: string
+  user_role:
+    type: string
+    default: crew_chief
+  active_session_id:
+    type: string
+  circuit:
+    type: string
+  stint_id:
+    type: string
+  base_setup_id:
+    type: string
+  proposed_setup_id:
+    type: string
+  vehicle_context:
+    type: object
+    additionalProperties: true
+  context:
+    type: object
+    additionalProperties: true
+  history:
+    type: array
+    items:
+      $ref: chat-message.schema.yaml

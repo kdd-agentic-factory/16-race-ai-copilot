@@ -19,3 +19,5 @@ properties:
   approval_status:
     type: string
     enum: [not_required, required, blocked]
+  next_step:
+    type: string

@@ -35,11 +35,14 @@ The MVP API is implemented in `services/copilot-api` and exposes:
 - `GET /health`
 - `POST /chat`
 - `POST /chat/stream`
+- `POST /integrations/race-command-center/chat`
 - `POST /tools/call`
 - `POST /recommendations/setup`
 - `POST /analysis/telemetry`
 - `POST /analysis/patterns`
 - `POST /reports/crew-chief`
+
+`15-race-command-center` should use the dedicated integration endpoint for its `AI Copilot` panel. The endpoint accepts Command Center context such as session, stint, circuit, base setup, proposed setup, and vehicle metadata, then returns an evidence-gated `CopilotResponse` with proposed calls through RAG/CAG, MCP Gateway, Agent Orchestrator, and Command Center APIs.
 
 ## Run Locally
 

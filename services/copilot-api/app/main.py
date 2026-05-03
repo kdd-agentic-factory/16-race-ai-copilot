@@ -2,12 +2,13 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
-from app.copilot import build_chat_response, build_setup_recommendation
+from app.copilot import build_chat_response, build_command_center_response, build_setup_recommendation
 from app.schemas import (
     ChatRequest,
     CopilotResponse,
     CrewChiefReportRequest,
     PatternAnalysisRequest,
+    RaceCommandCenterChatRequest,
     SetupRecommendationRequest,
     TelemetryAnalysisRequest,
     ToolCallRequest,
@@ -41,6 +42,11 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:
         yield "event: done\ndata: [DONE]\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
+
+
+@app.post("/integrations/race-command-center/chat", response_model=CopilotResponse)
+def race_command_center_chat(request: RaceCommandCenterChatRequest) -> CopilotResponse:
+    return build_command_center_response(request)
 
 
 @app.post("/tools/call", response_model=CopilotResponse)
