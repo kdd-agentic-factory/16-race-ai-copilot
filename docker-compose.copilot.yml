@@ -1,0 +1,43 @@
+services:
+  race-ai-copilot-api:
+    build:
+      context: ./services/copilot-api
+    container_name: race-ai-copilot-api
+    ports:
+      - "8050:8050"
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - MCP_GATEWAY_URL=http://mcp-gateway:8010
+      - RAG_CAG_URL=http://knowledge-layer:8020
+      - SKILLS_URL=http://skills-registry:8030
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+      - QDRANT_URL=http://qdrant:6333
+      - POSTGRES_URL=postgresql://kdd:kdd@postgres:5432/kdd
+      - COPILOT_DEFAULT_MODEL=qwen2.5:7b
+    depends_on:
+      - ollama
+
+  chat-ui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: race-ai-chat-ui
+    ports:
+      - "8088:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_NAME=Race AI Copilot
+    volumes:
+      - openwebui_data:/app/backend/data
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: race-ai-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
+volumes:
+  ollama_models:
+  openwebui_data:

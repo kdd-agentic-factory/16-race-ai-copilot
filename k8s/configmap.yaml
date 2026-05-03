@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: race-ai-copilot-config
+  namespace: race-ai-copilot
+data:
+  OLLAMA_URL: http://ollama:11434
+  MCP_GATEWAY_URL: http://mcp-gateway:8010
+  RAG_CAG_URL: http://knowledge-layer:8020
+  SKILLS_URL: http://skills-registry:8030
+  ORCHESTRATOR_URL: http://orchestrator:8000
+  QDRANT_URL: http://qdrant:6333
+  POSTGRES_URL: postgresql://kdd:kdd@postgres:5432/kdd
+  COPILOT_DEFAULT_MODEL: qwen2.5:7b

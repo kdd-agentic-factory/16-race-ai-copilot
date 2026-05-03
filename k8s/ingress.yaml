@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: race-ai-copilot
+  namespace: race-ai-copilot
+spec:
+  rules:
+    - host: race-ai-copilot.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: race-ai-copilot-api
+                port:
+                  number: 8050
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: race-ai-chat-ui
+                port:
+                  number: 8080

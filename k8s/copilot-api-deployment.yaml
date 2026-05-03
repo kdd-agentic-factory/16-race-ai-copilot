@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: race-ai-copilot-api
+  namespace: race-ai-copilot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: race-ai-copilot-api
+  template:
+    metadata:
+      labels:
+        app: race-ai-copilot-api
+    spec:
+      containers:
+        - name: api
+          image: race-ai-copilot-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8050
+          envFrom:
+            - configMapRef:
+                name: race-ai-copilot-config

@@ -1,0 +1,26 @@
+default_model: qwen2.5:7b
+
+profiles:
+  crew_chief:
+    model: qwen2.5:7b
+    temperature: 0.2
+    context_window: 8192
+    use_rag: true
+    require_evidence: true
+
+  data_engineer:
+    model: qwen2.5-coder:7b
+    temperature: 0.1
+    context_window: 8192
+    use_tools: true
+
+  paper_writer:
+    model: llama3.1:8b
+    temperature: 0.3
+    context_window: 8192
+    use_citations: true
+
+  fast_assistant:
+    model: mistral:7b
+    temperature: 0.2
+    context_window: 4096

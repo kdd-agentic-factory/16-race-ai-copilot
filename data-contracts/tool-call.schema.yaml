@@ -1,0 +1,15 @@
+type: object
+required:
+  - tool
+  - status
+  - approval_required
+properties:
+  tool:
+    type: string
+  status:
+    type: string
+    enum: [proposed, executed, blocked]
+  approval_required:
+    type: boolean
+  arguments:
+    type: object
