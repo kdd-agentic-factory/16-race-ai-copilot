@@ -47,11 +47,15 @@ class AnswerComposer:
         self.llm_client = llm_client
 
     async def compose(
-        self, 
-        prompt: str, 
-        stream: bool = False
+        self,
+        prompt: str,
+        stream: bool = False,
     ) -> Any:
+        """Generate the final response — streamed or non-streamed.
+
+        When *stream* is ``True`` the caller receives an async generator
+        that yields tokens as they arrive from Ollama.
         """
-        Generates the final response.
-        """
-        return await self.llm_client.generate(prompt, stream=stream)
+        if stream:
+            return self.llm_client.generate_stream(prompt)
+        return await self.llm_client.generate(prompt)

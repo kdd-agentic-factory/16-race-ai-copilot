@@ -69,22 +69,22 @@
     - **Verification**: Integration test (full guarded flow)
 
 ## Phase 5: Frontend Implementation
-- [ ] 5.1 **State Management**: Setup Zustand store for chat history, tool traces, and evidence state.
-    - **Files**: `frontend/src/store/useChatStore.ts`
+- [x] 5.1 **State Management**: Setup Zustand store for chat history, tool traces, and evidence state.
+    - **Files**: `frontend/src/stores/useChatStore.ts`
     - **Verification**: Console log state updates
-- [ ] 5.2 **Chat Shell**: Implement the main chat UI with streaming message support.
+- [x] 5.2 **Chat Shell**: Implement the main chat UI with streaming message support.
     - **Files**: `frontend/src/components/ChatShell.tsx`
     - **Verification**: Visual check (messages streaming)
-- [ ] 5.3 **Tool Timeline**: Implement a visual trace of the reasoning process (Classifier -> Planner -> Tools).
-    - **Files**: `frontend/src/components/ToolTimeline.tsx`
+- [x] 5.3 **Tool Timeline**: Implement a visual trace of the reasoning process (Classifier -> Planner -> Tools).
+    - **Files**: `frontend/src/components/ToolCallTimeline.tsx`
     - **Verification**: Visual check (timeline renders `tool_trace`)
-- [ ] 5.4 **Evidence Drawer**: Implement a sidebar to display source citations and raw evidence snippets.
+- [x] 5.4 **Evidence Drawer**: Implement a sidebar to display source citations and raw evidence snippets.
     - **Files**: `frontend/src/components/EvidenceDrawer.tsx`
     - **Verification**: Visual check (sources render from `EvidencePacket`)
-- [ ] 5.5 **API Integration**: Connect frontend to `POST /api/chat` with Server-Sent Events (SSE) or WebSockets.
-    - **Files**: `frontend/src/api/chat.ts`
+- [x] 5.5 **API Integration**: Connect frontend to `POST /api/chat`.
+    - **Files**: `frontend/src/api/client.ts`, `frontend/src/api/chat.ts`
     - **Verification**: End-to-end chat interaction
-- [ ] 5.6 **Approval Modal**: Implement a UI modal to handle `pending_approval` states from the backend.
+- [x] 5.6 **Approval Modal**: Implement a UI modal to handle `pending_approval` states from the backend.
     - **Files**: `frontend/src/components/ApprovalModal.tsx`
     - **Verification**: Visual check (modal appears on critical action)
 
