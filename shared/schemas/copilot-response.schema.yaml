@@ -1,0 +1,23 @@
+type: object
+required:
+  - message
+properties:
+  message:
+    type: string
+  evidence:
+    type: array
+    items:
+      $ref: evidence.schema.yaml
+  tool_calls:
+    type: array
+    items:
+      $ref: tool-call.schema.yaml
+  recommendations:
+    type: array
+    items:
+      $ref: recommendation.schema.yaml
+  approval_status:
+    type: string
+    enum: [not_required, required, blocked]
+  next_step:
+    type: string

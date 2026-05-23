@@ -1,0 +1,20 @@
+type: object
+required:
+  - type
+  - risk
+  - approval_required
+properties:
+  type:
+    type: string
+    enum: [setup_change, part_design, engine_map, tire_strategy]
+  summary:
+    type: string
+  risk:
+    type: string
+    enum: [low, medium, high]
+  approval_required:
+    type: boolean
+  evidence_refs:
+    type: array
+    items:
+      type: string

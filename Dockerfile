@@ -5,5 +5,5 @@ COPY services/copilot-api/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY services/copilot-api/app /app/app
 
-EXPOSE 8050
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8050"]
+EXPOSE 8160
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8160"]

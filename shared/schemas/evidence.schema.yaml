@@ -1,0 +1,17 @@
+type: object
+required:
+  - source
+  - type
+  - confidence
+properties:
+  source:
+    type: string
+  type:
+    type: string
+    enum: [telemetry, document, session, model, pattern]
+  confidence:
+    type: number
+    minimum: 0
+    maximum: 1
+  summary:
+    type: string
