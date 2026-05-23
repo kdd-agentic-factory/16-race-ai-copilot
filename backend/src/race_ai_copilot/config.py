@@ -21,6 +21,10 @@ class Settings(BaseSettings):
         default="http://localhost:8020", alias="RAG_CAG_URL"
     )
 
+    # --- App ---
+    app_env: str = Field(default="development", alias="APP_ENV")
+    static_dir: str = Field(default="static", alias="STATIC_DIR")
+
     # --- Feature flags ---
     enable_mock_mode: bool = Field(default=False, alias="ENABLE_MOCK_MODE")
     enable_approval_guard: bool = Field(

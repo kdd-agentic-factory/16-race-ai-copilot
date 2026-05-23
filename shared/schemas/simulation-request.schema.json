@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimulationRequest",
+  "type": "object",
+  "properties": {
+    "scenario_name": {"type": "string"},
+    "parameters": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "target_system": {"type": "string"},
+    "priority": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "default": "medium"
+    }
+  },
+  "required": ["scenario_name", "target_system"]
+}

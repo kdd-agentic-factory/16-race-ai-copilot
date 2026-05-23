@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ChatResponse",
+  "type": "object",
+  "properties": {
+    "conversation_id": {"type": "string"},
+    "message_id": {"type": "string"},
+    "answer": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "evidence": {"type": "array", "items": {"$ref": "evidence.schema.json"}},
+    "tool_calls": {"type": "array", "items": {"$ref": "tool-call.schema.json"}},
+    "recommendations": {"type": "array"},
+    "approval_required": {"type": "boolean", "default": false},
+    "approver_role": {"type": "string"},
+    "uncertainty": {"type": "string"},
+    "next_actions": {"type": "array", "items": {"type": "string"}}
+  },
+  "required": ["conversation_id", "message_id", "answer"]
+}

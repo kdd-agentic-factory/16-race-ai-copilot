@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  race-ai-copilot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: race-ai-copilot
+    ports:
+      - "8160:8160"
+    environment:
+      - APP_ENV=production
+      - APP_PORT=8160
+      - OLLAMA_URL=http://ollama:11434
+      - DEFAULT_MODEL=llama3.1
+      - EMBEDDING_MODEL=nomic-embed-text
+      - MCP_GATEWAY_URL=http://mcp-gateway:8010
+      - RAG_CAG_URL=http://rag-cag-knowledge-layer:8020
+      - KDD_PIPELINES_URL=http://kdd-data-pipelines:8060
+      - DIGITAL_TWIN_URL=http://digital-twin:8170
+      - DOCUMENTATION_AGENT_URL=http://documentation-agent:8040
+      - RACE_COMMAND_CENTER_URL=http://race-command-center:8150
+      - SECURITY_POLICY_URL=http://security-governance:8130
+      - ENABLE_MOCK_MODE=false
+      - ENABLE_STREAMING=true
+      - ENABLE_TOOL_CALLING=true
+      - ENABLE_RAG=true
+      - ENABLE_APPROVAL_GUARD=true
+      - ENABLE_EVIDENCE_GUARD=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      ollama:
+        condition: service_healthy
+      mcp-gateway:
+        condition: service_started
+      rag-cag-knowledge-layer:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8160/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - kdd-ai
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: race-ai-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - kdd-ai
+    restart: unless-stopped
+
+  # Dev frontend with hot-reload (for production, frontend is served by the backend)
+  frontend-dev:
+    image: node:20-slim
+    container_name: race-ai-copilot-frontend-dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    profiles:
+      - dev
+    networks:
+      - kdd-ai
+
+volumes:
+  ollama_models:
+
+networks:
+  kdd-ai:
+    name: kdd-agentic-factory
+    external: true

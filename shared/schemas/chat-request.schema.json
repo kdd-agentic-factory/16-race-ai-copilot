@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ChatRequest",
+  "type": "object",
+  "properties": {
+    "conversation_id": {"type": "string"},
+    "session_id": {"type": "string"},
+    "user_id": {"type": "string"},
+    "message": {"type": "string"},
+    "model": {"type": "string"},
+    "require_evidence": {"type": "boolean", "default": true},
+    "stream": {"type": "boolean", "default": false},
+    "context": {"type": "object"}
+  },
+  "required": ["message"]
+}
