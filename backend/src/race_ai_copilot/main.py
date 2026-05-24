@@ -34,6 +34,7 @@ def _configure_otel(app: FastAPI, service_name: str = "race-ai-copilot") -> None
         logging.getLogger(__name__).warning("OTEL setup failed (non-fatal): %s", exc)
 
 from .clients.mcp_client import MCPClient
+from .rate_limit import RateLimitMiddleware
 from .clients.rag_cag_client import RAGCAGClient
 from .config import get_settings
 from .guardrails.approval_guard import ApprovalGuard
@@ -165,6 +166,7 @@ async def _metrics():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
+app.add_middleware(RateLimitMiddleware, calls_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")))
 app.include_router(health_router.router)
 app.include_router(chat_router.router, prefix="/api")
 
