@@ -1,20 +1,37 @@
-"""FastAPI application entry point for the Race AI Copilot.
-
-Initialises all clients, services, guardrails, and registers the API
-routers so the service is ready to accept requests.
-"""
+"""FastAPI application entry point for the Race AI Copilot."""
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-
 from pathlib import Path
+from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+
+
+def _configure_otel(app: FastAPI, service_name: str = "race-ai-copilot") -> None:
+    endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+    if not endpoint:
+        return
+    try:
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
+        provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint, insecure=True)))
+        trace.set_tracer_provider(provider)
+        FastAPIInstrumentor.instrument_app(app)
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("OTEL setup failed (non-fatal): %s", exc)
 
 from .clients.mcp_client import MCPClient
 from .clients.rag_cag_client import RAGCAGClient
@@ -151,6 +168,7 @@ async def _metrics():
 app.include_router(health_router.router)
 app.include_router(chat_router.router, prefix="/api")
 
+_configure_otel(app)
 
 # ------------------------------------------------------------------
 # Static files (frontend SPA)
