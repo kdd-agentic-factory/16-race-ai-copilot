@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  python:
+    uses: kdd-agentic-race-engineering/12-ci-cd-security/.github/workflows/reusable-python-ci.yml@main
+    with:
+      python-version: "3.11"
+
+  docker:
+    uses: kdd-agentic-race-engineering/12-ci-cd-security/.github/workflows/reusable-docker-build.yml@main
+    with:
+      image-name: race-ai-copilot
+      push: ${{ github.event_name != 'pull_request' }}
+    secrets:
+      registry-token: ${{ secrets.GITHUB_TOKEN }}
+
+  security:
+    uses: kdd-agentic-race-engineering/12-ci-cd-security/.github/workflows/reusable-security-scan.yml@main

@@ -1,0 +1,26 @@
+name: Security Scan
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install bandit pip-audit
+          pip install -e .
+      - name: Run Bandit
+        run: bandit -r src/ -ll
+      - name: Run pip-audit
+        run: pip-audit
+      - name: Run npm audit
+        run: cd frontend && npm audit --audit-level=high
+        continue-on-error: true

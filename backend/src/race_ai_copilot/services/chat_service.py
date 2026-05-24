@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from ..clients.mcp_client import MCPClient
 from ..clients.rag_cag_client import RAGCAGClient
+from ..conversation_store import load_history, save_turn
 from ..guardrails.approval_guard import ApprovalGuard
 from ..guardrails.evidence_required_guard import EvidenceRequiredGuard
 from ..guardrails.race_decision_guard import RaceDecisionGuard
@@ -97,6 +98,17 @@ class ChatService:
         conversation_id = request.conversation_id or generate_id()
         message_id = generate_id()
 
+        # ── Step 1b: Load conversation history from DB ───────────────
+        history = await load_history(conversation_id, max_turns=10)
+
+        # Persist the incoming user turn immediately
+        await save_turn(
+            conversation_id=conversation_id,
+            role="user",
+            content=request.message,
+            session_id=request.session_id,
+        )
+
         # ── Step 2: Intent classification ────────────────────────────
         intent = await self.intent_classifier.classify(request.message)
 
@@ -120,21 +132,18 @@ class ChatService:
         # ── Step 5: Tool execution ───────────────────────────────────
         mcp_results: Optional[Dict[str, Any]] = None
         if tool_plan:
-            try:
-                # For now we execute the *first* tool in the plan.
-                # A production version would run them in sequence, passing
-                # outputs as inputs to subsequent calls.
-                first_tool = tool_plan[0]
-                mcp_results = await self.mcp_client.call_tool(
-                    tool_name=first_tool.tool_name,
-                    payload=first_tool.parameters,
-                )
-                # Stamp the result back onto the record
-                first_tool.result = mcp_results
-            except Exception:
-                # Tool failure — mark the record and continue
-                if tool_plan:
-                    tool_plan[0].result = {"error": "Tool execution failed"}
+            accumulated: Dict[str, Any] = {}
+            for tool_record in tool_plan:
+                try:
+                    result = await self.mcp_client.call_tool(
+                        tool_name=tool_record.tool_name,
+                        payload=tool_record.parameters,
+                    )
+                    tool_record.result = result
+                    accumulated[tool_record.tool_name] = result
+                except Exception as exc:
+                    tool_record.result = {"error": str(exc)}
+            mcp_results = accumulated if accumulated else None
 
         # ── Step 6: Build evidence packet ────────────────────────────
         evidence_packet = self.evidence_builder.build(
