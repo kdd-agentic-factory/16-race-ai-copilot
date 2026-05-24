@@ -156,7 +156,7 @@ class ChatService:
         # ── Step 7: Build grounded prompt ────────────────────────────
         prompt = self.prompt_builder.build_grounded_prompt(
             query=request.message,
-            history=[],  # history management is deferred to Phase 5+
+            history=history,
             evidence=evidence_packet,
             tool_trace=tool_plan,
         )
@@ -192,6 +192,14 @@ class ChatService:
         approval_result = self.approval_guard.evaluate(
             message=request.message,
             recommendations=recommendations,
+        )
+
+        # ── Step 11b: Persist assistant reply ───────────────────────
+        await save_turn(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=sanitized_answer,
+            session_id=request.session_id,
         )
 
         # ── Step 12: Build response ──────────────────────────────────

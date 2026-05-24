@@ -11,9 +11,10 @@ from typing import AsyncGenerator
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 from .clients.mcp_client import MCPClient
 from .clients.rag_cag_client import RAGCAGClient
@@ -27,6 +28,7 @@ from .reasoning.composer import AnswerComposer, PromptBuilder
 from .reasoning.evidence_planner import EvidenceBuilder
 from .reasoning.intent_classifier import IntentClassifier
 from .reasoning.tool_planner import ToolPlanner
+from .conversation_store import init_conversation_db
 from .routers import chat as chat_router
 from .routers import health as health_router
 from .services.chat_service import ChatService
@@ -43,6 +45,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     them in ``app.state`` so they are available to route handlers via
     dependency injection overrides.
     """
+    # ---- DB init ----
+    await init_conversation_db()
+
     # ---- Read settings ----
     settings = get_settings()
 
@@ -109,6 +114,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # Application factory
 # ------------------------------------------------------------------
 
+_REQUEST_COUNT = Counter(
+    "copilot_http_requests_total", "Total HTTP requests", ["method", "path", "status_code"]
+)
+_REQUEST_LATENCY = Histogram(
+    "copilot_http_request_duration_seconds", "HTTP request duration", ["method", "path"]
+)
+
 app = FastAPI(
     title="Race AI Copilot API",
     description="AI-powered copilot for race engineering — "
@@ -120,6 +132,21 @@ app = FastAPI(
 # ------------------------------------------------------------------
 # Register routers
 # ------------------------------------------------------------------
+
+@app.middleware("http")
+async def _metrics_middleware(request: Request, call_next):
+    path = request.url.path
+    method = request.method
+    with _REQUEST_LATENCY.labels(method=method, path=path).time():
+        response = await call_next(request)
+    _REQUEST_COUNT.labels(method=method, path=path, status_code=response.status_code).inc()
+    return response
+
+
+@app.get("/metrics", include_in_schema=False)
+async def _metrics():
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 app.include_router(health_router.router)
 app.include_router(chat_router.router, prefix="/api")
