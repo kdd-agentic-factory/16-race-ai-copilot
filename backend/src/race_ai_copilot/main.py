@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
@@ -34,6 +35,7 @@ def _configure_otel(app: FastAPI, service_name: str = "race-ai-copilot") -> None
         logging.getLogger(__name__).warning("OTEL setup failed (non-fatal): %s", exc)
 
 from .clients.mcp_client import MCPClient
+from .insforge_auth import InsForgeAuthMiddleware
 from .rate_limit import RateLimitMiddleware
 from .clients.rag_cag_client import RAGCAGClient
 from .config import get_settings
@@ -166,7 +168,15 @@ async def _metrics():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
+app.add_middleware(InsForgeAuthMiddleware)
 app.add_middleware(RateLimitMiddleware, calls_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")))
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 app.include_router(health_router.router)
 app.include_router(chat_router.router, prefix="/api")
 

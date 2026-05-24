@@ -2,8 +2,8 @@ FROM node:20-slim AS frontend-build
 
 WORKDIR /app/frontend
 
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
+COPY frontend/package.json ./
+RUN npm install --legacy-peer-deps
 
 COPY frontend/ .
 RUN npm run build
@@ -17,20 +17,20 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONPATH=/app/src
 
-# Install system deps if needed
 RUN apt-get update && apt-get install -y --no-install-recommends gcc && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source
 COPY backend/src ./src
-
-# Copy built frontend static files
 COPY --from=frontend-build /app/frontend/dist ./static
+
+RUN addgroup --system kdd && adduser --system --ingroup kdd --uid 1000 kdd \
+    && chown -R kdd:kdd /app
+
+USER kdd
 
 EXPOSE 8160
 
