@@ -56,15 +56,31 @@ class EvidenceBuilder:
                     total_claims += 1
 
         # ---- Process MCP results ----
+        # mcp_results is either a flat {"data": {...}} result or an accumulated
+        # {"tool_name": {"data": {...}}, ...} dict produced by ChatService.
         if mcp_results:
-            mcp_data = mcp_results.get("data", mcp_results.get("result", {}))
+            # Detect accumulated format: all values are dicts with a "data" key
+            is_accumulated = all(
+                isinstance(v, dict) and ("data" in v or "result" in v)
+                for v in mcp_results.values()
+            ) if mcp_results else False
+
+            if is_accumulated:
+                all_data: Dict[str, Any] = {}
+                for tool_result in mcp_results.values():
+                    payload = tool_result.get("data", tool_result.get("result", {}))
+                    if isinstance(payload, dict):
+                        all_data.update(payload)
+            else:
+                all_data = mcp_results.get("data", mcp_results.get("result", {}))
+
             data_items = (
-                mcp_data.items()
-                if isinstance(mcp_data, dict)
+                all_data.items()
+                if isinstance(all_data, dict)
                 else (
-                    [(str(i), item) for i, item in enumerate(mcp_data)]
-                    if isinstance(mcp_data, list)
-                    else [("result", mcp_data)]
+                    [(str(i), item) for i, item in enumerate(all_data)]
+                    if isinstance(all_data, list)
+                    else [("result", all_data)]
                 )
             )
             for key, value in data_items:
