@@ -1,4 +1,4 @@
-FROM node:20-slim AS frontend-build
+FROM node:20.18.0-slim AS frontend-build
 
 WORKDIR /app/frontend
 
@@ -9,7 +9,7 @@ COPY frontend/ .
 RUN npm run build
 
 
-FROM python:3.12-slim AS backend
+FROM python:3.12.7-slim AS backend
 
 WORKDIR /app
 

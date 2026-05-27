@@ -178,7 +178,7 @@ app.add_middleware(
     allow_credentials=False,
 )
 app.include_router(health_router.router)
-app.include_router(chat_router.router, prefix="/api")
+app.include_router(chat_router.router, prefix="/api/v1")
 
 _configure_otel(app)
 
@@ -194,7 +194,7 @@ if STATIC_DIR.is_dir():
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         """Catch-all route to serve the SPA index.html for client-side routing."""
-        if full_path.startswith("api/") or full_path.startswith("health"):
+        if full_path.startswith("api/") or full_path.startswith("health") or full_path.startswith("metrics"):
             from fastapi import HTTPException
             raise HTTPException(status_code=404)
         index_file = STATIC_DIR / "index.html"
