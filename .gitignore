@@ -5,3 +5,6 @@ __pycache__/
 .env
 openwebui_data/
 ollama_models/
+
+# InsForge deploy temp env file
+.env.insforge-compute
