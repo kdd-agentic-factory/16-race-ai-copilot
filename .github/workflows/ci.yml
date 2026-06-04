@@ -17,7 +17,6 @@ jobs:
     uses: kdd-agentic-factory/12-ci-cd-security/.github/workflows/reusable-security-scan.yml@main
 
   docker:
-    needs: python-ci
     uses: kdd-agentic-factory/12-ci-cd-security/.github/workflows/reusable-docker-build.yml@main
     with:
       image-name: race-ai-copilot
