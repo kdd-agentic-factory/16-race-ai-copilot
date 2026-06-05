@@ -30,6 +30,29 @@ engine = create_async_engine(
 )
 _SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+if not _is_sqlite:
+    # Defensive: this service models created_at as an ISO string (TEXT in its own
+    # DDL). If the shared InsForge schema pre-created conversation_turns with a
+    # TIMESTAMP column, asyncpg would reject the str bind. Text passthrough codecs
+    # make ISO strings round-trip; they are a no-op when the column is already TEXT.
+    from datetime import datetime as _dt
+
+    from sqlalchemy import event
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _register_text_timestamp_codecs(dbapi_connection, connection_record):
+        async def _setup(conn):
+            for _typename in ("timestamp", "timestamptz", "date"):
+                await conn.set_type_codec(
+                    _typename,
+                    schema="pg_catalog",
+                    encoder=lambda v: v if isinstance(v, str) else _dt.isoformat(v),
+                    decoder=lambda v: v,
+                    format="text",
+                )
+
+        dbapi_connection.run_async(_setup)
+
 _DDL = """
 CREATE TABLE IF NOT EXISTS conversation_turns (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
