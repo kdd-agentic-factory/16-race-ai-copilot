@@ -85,14 +85,18 @@ class ChatService:
         2. Classify the user's intent (keyword + LLM fallback).
         3. Retrieve grounding context from the RAG/CAG service.
         4. Plan tool calls based on the classified intent.
-        5. Execute tools via the MCP client.
-        6. Build an ``EvidencePacket`` from RAG + MCP results.
-        7. Build a grounded prompt for the LLM.
-        8. Generate the answer via ``AnswerComposer`` / Ollama.
-        9. Sanitise the answer with ``RaceDecisionGuard``.
-        10. Validate evidence presence with ``EvidenceRequiredGuard``.
-        11. Evaluate critical-action interception with ``ApprovalGuard``.
-        12. Assemble and return the final ``ChatResponse``.
+        5. **Pre-execution approval check** — evaluate whether the
+           message or planned tools require crew-chief approval.
+           Tools are blocked when ``approval_required`` is ``True``
+           but ``request.approval_granted`` is ``False``.
+        6. Execute tools via the MCP client (SKIPPED when blocked).
+        7. Build an ``EvidencePacket`` from RAG + MCP results.
+        8. Build a grounded prompt for the LLM.
+        9. Generate the answer via ``AnswerComposer`` / Ollama.
+        10. Sanitise the answer with ``RaceDecisionGuard``.
+        11. Validate evidence presence with ``EvidenceRequiredGuard``.
+        12. Post-execution approval check — merge with pre-check result.
+        13. Assemble and return the final ``ChatResponse``.
         """
         # ── Step 1: IDs ──────────────────────────────────────────────
         conversation_id = request.conversation_id or generate_id()
@@ -129,9 +133,28 @@ class ChatService:
             query=request.message,
         )
 
-        # ── Step 5: Tool execution ───────────────────────────────────
+        # ── Step 5: Pre-execution approval check ─────────────────────
+        # Evaluate whether the message and/or planned tools require
+        # crew-chief approval BEFORE any tool is executed.  This is the
+        # critical security gate — without it tools can be invoked
+        # without human oversight.
+        pre_approval = self.approval_guard.evaluate(
+            message=request.message,
+            recommendations=[t.tool_name for t in tool_plan],
+        )
+        approval_required = pre_approval.get("approval_required", False)
+        approval_granted = request.approval_granted
+        approver_role: Optional[str] = pre_approval.get("approver_role")
+
+        # When approval IS required but has NOT been granted, we skip
+        # tool execution entirely.  Only RAG/CAG context is used so
+        # the copilot can still produce a preliminary answer without
+        # taking any action.
+        tools_blocked = approval_required and not approval_granted
+
+        # ── Step 6: Tool execution (gated) ───────────────────────────
         mcp_results: Optional[Dict[str, Any]] = None
-        if tool_plan:
+        if tool_plan and not tools_blocked:
             accumulated: Dict[str, Any] = {}
             for tool_record in tool_plan:
                 try:
@@ -145,7 +168,7 @@ class ChatService:
                     tool_record.result = {"error": str(exc)}
             mcp_results = accumulated if accumulated else None
 
-        # ── Step 6: Build evidence packet ────────────────────────────
+        # ── Step 7: Build evidence packet ────────────────────────────
         evidence_packet = self.evidence_builder.build(
             rag_results=rag_results,
             mcp_results=mcp_results,
@@ -153,24 +176,24 @@ class ChatService:
         evidence_items: List[EvidenceItem] = evidence_packet.sources
         confidence: float = evidence_packet.groundedness_score
 
-        # ── Step 7: Build grounded prompt ────────────────────────────
+        # ── Step 8: Build grounded prompt ────────────────────────────
         prompt = self.prompt_builder.build_grounded_prompt(
             query=request.message,
             history=history,
             evidence=evidence_packet,
-            tool_trace=tool_plan,
+            tool_trace=tool_plan if not tools_blocked else [],
         )
 
-        # ── Step 8: Generate answer ──────────────────────────────────
+        # ── Step 9: Generate answer ──────────────────────────────────
         raw_answer: str = await self.answer_composer.compose(
             prompt=prompt,
             stream=request.stream,
         )
 
-        # ── Step 9: Sanitize with RaceDecisionGuard ──────────────────
+        # ── Step 10: Sanitize with RaceDecisionGuard ─────────────────
         sanitized_answer: str = self.decision_guard.sanitize(raw_answer)
 
-        # ── Step 10: EvidenceRequiredGuard ───────────────────────────
+        # ── Step 11: EvidenceRequiredGuard ───────────────────────────
         evidence_check = self.evidence_guard.evaluate(
             answer=sanitized_answer,
             evidence=evidence_packet,
@@ -185,16 +208,38 @@ class ChatService:
                 "Please verify critical information before acting."
             )
 
-        # ── Step 11: ApprovalGuard ───────────────────────────────────
+        # ── Step 12: Post-execution ApprovalGuard ────────────────────
+        # This second pass captures recommendations mentioned in the
+        # answer text itself.  The critical gate (tool execution) was
+        # already enforced in Step 5 — this pass is purely informational.
         recommendations: List[Recommendation] = self._extract_recommendations(
             sanitized_answer
         )
-        approval_result = self.approval_guard.evaluate(
+        post_approval = self.approval_guard.evaluate(
             message=request.message,
             recommendations=recommendations,
         )
+        # Merge: if either pre or post says approval is needed, keep it
+        approval_required = approval_required or post_approval.get(
+            "approval_required", False
+        )
+        if post_approval.get("approver_role") and not approver_role:
+            approver_role = post_approval["approver_role"]
 
-        # ── Step 11b: Persist assistant reply ───────────────────────
+        # Add a notice when tools were blocked
+        if tools_blocked:
+            blocked_notice = (
+                "Tool execution was blocked because this request requires "
+                f"{approver_role or 'crew-chief'} approval. "
+                "Set approval_granted=True and resubmit to execute."
+            )
+            if sanitized_answer:
+                sanitized_answer += f"\n\n_{blocked_notice}_"
+            uncertainty = (
+                uncertainty or ""
+            ) + f" {blocked_notice}" if uncertainty else blocked_notice
+
+        # ── Step 12b: Persist assistant reply ──────────────────────
         await save_turn(
             conversation_id=conversation_id,
             role="assistant",
@@ -202,7 +247,7 @@ class ChatService:
             session_id=request.session_id,
         )
 
-        # ── Step 12: Build response ──────────────────────────────────
+        # ── Step 13: Build response ──────────────────────────────────
         return ChatResponse(
             conversation_id=conversation_id,
             message_id=message_id,
@@ -211,10 +256,12 @@ class ChatService:
             evidence=evidence_items,
             tool_calls=tool_plan,
             recommendations=recommendations,
-            approval_required=approval_result.get("approval_required", False),
-            approver_role=approval_result.get("approver_role"),
+            approval_required=approval_required,
+            approver_role=approver_role,
             uncertainty=uncertainty,
-            next_actions=self._suggest_next_actions(intent, approval_result),
+            next_actions=self._suggest_next_actions(
+                intent, {"approval_required": approval_required, "approver_role": approver_role}
+            ),
         )
 
     # ------------------------------------------------------------------

@@ -105,6 +105,12 @@ class ChatRequest(BaseModel):
         default=False,
         description="When True the response is streamed token-by-token.",
     )
+    approval_granted: bool = Field(
+        default=False,
+        description="When True, the user (e.g. crew chief) has explicitly granted "
+        "approval for critical actions. Tools that require approval will only "
+        "execute when this flag is True.",
+    )
     context: Dict[str, Any] = Field(
         default_factory=dict,
         description="Additional context such as circuit_id, session_type, etc.",

@@ -617,7 +617,196 @@ class TestChatServicePipeline:
             assert hasattr(response_a, field), f"ChatResponse missing required field: {field}"
 
     # ------------------------------------------------------------------
-    # 6. Evidence from MCP without RAG still produces evidence
+    # 6. Approval gating — approval required, not granted → tools blocked
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_approval_required_without_approval_blocks_tools(
+        self,
+        service: ChatService,
+        mock_ollama: MagicMock,
+        mock_rag_cag: MagicMock,
+        mock_mcp: MagicMock,
+        setup_rag: Dict[str, Any],
+        setup_mcp: Dict[str, Any],
+    ) -> None:
+        """When approval is required but NOT granted, tools must NOT execute.
+
+        Scenario
+        --------
+        User asks → "Should we switch to Mapping 2 after lap 10?"
+        The keyword ``mapping`` triggers ``ApprovalGuard`` → ``approval_required``.
+        Since ``approval_granted`` defaults to ``False``, the tool execution
+        step is SKIPPED entirely — ``call_tool`` is never called.
+        The response still reports ``approval_required=True``.
+        """
+        # ── Arrange ──────────────────────────────────────────────
+        mock_rag_cag.search_context.return_value = setup_rag
+        mock_mcp.call_tool.return_value = setup_mcp
+
+        mock_ollama.generate.side_effect = [
+            "Setup",  # IntentClassifier.classify()
+            '[{"tool_name": "get_current_setup", "parameters": {}}]',  # ToolPlanner
+            (
+                "I recommend switching to Mapping 2 after lap 10. "
+                "This change can improve high-RPM power delivery but reduces "
+                "fuel endurance by approximately 2 laps.\n"
+                "Suggest verifying with the crew chief before applying the change."
+            ),
+        ]
+
+        request = ChatRequest(
+            message="Should we switch to Mapping 2 after lap 10?",
+            # approval_granted defaults to False — tools should be BLOCKED
+        )
+
+        # ── Act ──────────────────────────────────────────────────
+        response: ChatResponse = await service.answer(request)
+
+        # ── Assert ────────────────────────────────────────────────
+
+        # --- Approval required ---
+        assert response.approval_required is True
+        assert response.approver_role == "crew_chief"
+
+        # --- MCP client was NEVER called (tools blocked) ---
+        mock_mcp.call_tool.assert_not_called()
+
+        # --- Tool calls still appear in the plan (but not executed) ---
+        assert len(response.tool_calls) > 0
+        assert response.tool_calls[0].tool_name == "get_current_setup"
+        # Result should be None since the tool was not executed
+        assert response.tool_calls[0].result is None
+
+        # --- Evidence still comes from RAG (no MCP data) ---
+        assert len(response.evidence) > 0
+        assert any("mapping" in e.snippet.lower() for e in response.evidence)
+
+        # --- Uncertainty mentions blocked tools ---
+        assert response.uncertainty is not None
+        assert "blocked" in response.uncertainty.lower()
+
+    # ------------------------------------------------------------------
+    # 7. Approval gating — approval required AND granted → tools execute
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_approval_required_with_granted_executes_tools(
+        self,
+        service: ChatService,
+        mock_ollama: MagicMock,
+        mock_rag_cag: MagicMock,
+        mock_mcp: MagicMock,
+        setup_rag: Dict[str, Any],
+        setup_mcp: Dict[str, Any],
+    ) -> None:
+        """When approval is required AND explicitly granted, tools MUST execute.
+
+        Scenario
+        --------
+        Same critical keyword ``mapping`` triggers approval, but this time
+        the request carries ``approval_granted=True``.  The tool execution
+        gate opens and ``call_tool`` IS called.
+        """
+        # ── Arrange ──────────────────────────────────────────────
+        mock_rag_cag.search_context.return_value = setup_rag
+        mock_mcp.call_tool.return_value = setup_mcp
+
+        mock_ollama.generate.side_effect = [
+            "Setup",  # IntentClassifier.classify()
+            '[{"tool_name": "get_current_setup", "parameters": {}}]',  # ToolPlanner
+            (
+                "I recommend switching to Mapping 2 after lap 10. "
+                "This change can improve high-RPM power delivery but reduces "
+                "fuel endurance by approximately 2 laps.\n"
+                "Suggest verifying with the crew chief before applying the change."
+            ),
+        ]
+
+        request = ChatRequest(
+            message="Should we switch to Mapping 2 after lap 10?",
+            approval_granted=True,
+        )
+
+        # ── Act ──────────────────────────────────────────────────
+        response: ChatResponse = await service.answer(request)
+
+        # ── Assert ────────────────────────────────────────────────
+
+        # --- Approval still flagged (it's informational) ---
+        assert response.approval_required is True
+        assert response.approver_role == "crew_chief"
+
+        # --- MCP client WAS called (tools executed) ---
+        mock_mcp.call_tool.assert_called_once()
+
+        # --- Tool calls have results (executed) ---
+        assert len(response.tool_calls) > 0
+        assert response.tool_calls[0].tool_name == "get_current_setup"
+        assert response.tool_calls[0].result is not None
+        assert "data" in response.tool_calls[0].result
+
+        # --- No tool-blocked uncertainty ---
+        if response.uncertainty:
+            assert "blocked" not in response.uncertainty.lower()
+
+    # ------------------------------------------------------------------
+    # 8. Approval gating — safe query never blocks regardless of flag
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_safe_query_executes_tools_regardless_of_approval_flag(
+        self,
+        service: ChatService,
+        mock_ollama: MagicMock,
+        mock_rag_cag: MagicMock,
+        mock_mcp: MagicMock,
+        telemetry_rag: Dict[str, Any],
+        telemetry_mcp: Dict[str, Any],
+    ) -> None:
+        """A safe query (no critical keywords) executes tools even without ``approval_granted``.
+
+        Scenario
+        --------
+        User asks a telemetry question about tire degradation.  No critical
+        keywords are present, so ``approval_required`` is ``False``.
+        Tools should execute regardless of the ``approval_granted`` flag.
+        """
+        # ── Arrange ──────────────────────────────────────────────
+        mock_rag_cag.search_context.return_value = telemetry_rag
+        mock_mcp.call_tool.return_value = telemetry_mcp
+
+        mock_ollama.generate.side_effect = [
+            # ToolPlanner
+            '[{"tool_name": "get_telemetry_data", "parameters": {"sensor": "tire_temp"}}]',
+            # AnswerComposer
+            "Based on telemetry data, rear tire degradation increases after lap 10.",
+        ]
+
+        # Explicitly set approval_granted=False to prove it doesn't interfere
+        request = ChatRequest(
+            message="Why is rear tire degradation increasing after lap 10?",
+            approval_granted=False,
+        )
+
+        # ── Act ──────────────────────────────────────────────────
+        response: ChatResponse = await service.answer(request)
+
+        # ── Assert ────────────────────────────────────────────────
+
+        # --- No approval needed ---
+        assert response.approval_required is False
+        assert response.approver_role is None
+
+        # --- MCP client WAS called (not blocked) ---
+        mock_mcp.call_tool.assert_called_once()
+
+        # --- Tool calls exist ---
+        assert len(response.tool_calls) > 0
+        assert response.tool_calls[0].result is not None
+
+    # ------------------------------------------------------------------
+    # 9. Evidence from MCP without RAG still produces evidence
     # ------------------------------------------------------------------
 
     @pytest.mark.asyncio
