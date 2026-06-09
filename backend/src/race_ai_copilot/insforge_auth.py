@@ -16,8 +16,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
-_AUTH_ENABLED = os.getenv("INSFORGE_AUTH_ENABLED", "false").lower() == "true"
-_JWT_SECRET = os.getenv("JWT_SECRET", "") or "kdd-dev-secret-change-me"
+_AUTH_ENABLED = os.getenv("INSFORGE_AUTH_ENABLED", "true").lower() == "true"
+_JWT_SECRET = os.getenv("JWT_SECRET", "")
+
+if _AUTH_ENABLED and not _JWT_SECRET:
+    logger.critical("JWT_SECRET environment variable is REQUIRED when auth is enabled")
+    raise RuntimeError("JWT_SECRET is not configured. Set JWT_SECRET before starting.")
 _BYPASS = {
     "/health", "/healthz", "/readyz",
     "/metrics", "/prometheus",
