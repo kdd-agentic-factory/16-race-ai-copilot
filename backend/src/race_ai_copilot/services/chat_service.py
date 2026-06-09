@@ -10,6 +10,9 @@ from __future__ import annotations
 import uuid
 from typing import Any, Dict, List, Optional
 
+from fastapi import HTTPException, status
+
+from ..auth_deps import Principal
 from ..clients.mcp_client import MCPClient
 from ..clients.rag_cag_client import RAGCAGClient
 from ..conversation_store import load_history, save_turn
@@ -76,8 +79,20 @@ class ChatService:
     # Public API
     # ------------------------------------------------------------------
 
-    async def answer(self, request: ChatRequest) -> ChatResponse:
+    async def answer(
+        self,
+        request: ChatRequest,
+        principal: Optional[Principal] = None,
+    ) -> ChatResponse:
         """Execute the full chat pipeline for a single request.
+
+        Parameters
+        ----------
+        request:
+            The incoming chat message and metadata.
+        principal:
+            The authenticated caller.  When ``None``, approval features are
+            disabled (local-dev mode without auth).
 
         Steps
         -----
@@ -97,6 +112,13 @@ class ChatService:
         11. Validate evidence presence with ``EvidenceRequiredGuard``.
         12. Post-execution approval check — merge with pre-check result.
         13. Assemble and return the final ``ChatResponse``.
+
+        Raises
+        ------
+        HTTPException 403
+            When ``request.approval_granted`` is ``True`` but the
+            authenticated principal does not hold a crew-chief-equivalent
+            role.
         """
         # ── Step 1: IDs ──────────────────────────────────────────────
         conversation_id = request.conversation_id or generate_id()
@@ -145,6 +167,18 @@ class ChatService:
         approval_required = pre_approval.get("approval_required", False)
         approval_granted = request.approval_granted
         approver_role: Optional[str] = pre_approval.get("approver_role")
+
+        # Role validation: only crew-chief-equivalent roles can grant approval.
+        # If the caller lacks the required role, ignore the client-provided flag.
+        if approval_granted and principal and not principal.is_crew_chief:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"Role '{principal.role}' cannot grant approval for critical "
+                    f"actions. This requires a crew-chief-equivalent role "
+                    f"(crew_chief, admin, race_engineer, team_principal)."
+                ),
+            )
 
         # When approval IS required but has NOT been granted, we skip
         # tool execution entirely.  Only RAG/CAG context is used so

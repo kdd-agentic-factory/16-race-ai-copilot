@@ -10,6 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
+from ..auth_deps import Principal, get_current_principal
 from ..models.schemas import ChatRequest, ChatResponse
 from ..services.chat_service import ChatService
 
@@ -30,11 +31,13 @@ async def get_chat_service() -> ChatService:
 async def chat(
     request: ChatRequest,
     service: Annotated[ChatService, Depends(get_chat_service)],
+    principal: Annotated[Principal, Depends(get_current_principal)],
 ) -> ChatResponse:
     """Process a chat message through the full reasoning pipeline.
 
     Args:
         request: The incoming chat message and metadata.
+        principal: The authenticated caller resolved from JWT / trusted headers.
 
     Returns:
         A ``ChatResponse`` containing the generated answer, evidence,
@@ -42,5 +45,6 @@ async def chat(
 
     Responses:
         200: Success — the answer was generated.
+        403: The caller lacks the required role to grant approval.
     """
-    return await service.answer(request)
+    return await service.answer(request, principal=principal)
