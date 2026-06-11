@@ -14,6 +14,9 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
       <div
+        role="article"
+        aria-label={isUser ? 'User message' : 'Copilot message'}
+        data-testid={isUser ? 'user-message' : 'copilot-message'}
         className={`max-w-[80%] md:max-w-[70%] rounded-2xl px-4 py-3 ${
           isUser
             ? 'bg-red-600 text-white rounded-br-md'

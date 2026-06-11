@@ -75,8 +75,9 @@ test.describe('Chat flow', () => {
     ).toBeVisible();
 
     // Sidebar brand heading (desktop)
-    const sidebarBrand = page.locator('aside h1');
-    await expect(sidebarBrand).toHaveText('Race Copilot');
+    await expect(
+      page.getByRole('heading', { name: 'Race Copilot' }),
+    ).toBeVisible();
   });
 
   test('Chat input has the correct placeholder', async ({ page }) => {
@@ -99,7 +100,7 @@ test.describe('Chat flow', () => {
     await sendButton.click();
 
     // User bubble appears with the sent text
-    const userBubble = page.locator('.max-w-\\[80%\\]').first();
+    const userBubble = page.getByRole('article', { name: 'User message' }).first();
     await expect(userBubble).toBeVisible();
     await expect(userBubble).toContainText('Suggest a setup for understeer in T4');
 
@@ -138,7 +139,9 @@ test.describe('Chat flow', () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Evidence source button should appear
-    const evidenceButton = page.getByText('2 evidence sources');
+    const evidenceButton = page.getByRole('button', {
+      name: '2 evidence sources',
+    });
     await expect(evidenceButton).toBeVisible();
   });
 
@@ -151,7 +154,7 @@ test.describe('Chat flow', () => {
     await suggestionButton.click();
 
     // After clicking, the user bubble should appear with the suggestion text
-    const userBubble = page.locator('.max-w-\\[80%\\]').first();
+    const userBubble = page.getByRole('article', { name: 'User message' }).first();
     await expect(userBubble).toBeVisible();
     await expect(userBubble).toContainText(suggestionText);
   });
@@ -170,7 +173,7 @@ test.describe('Chat flow', () => {
       await btn.click();
 
       // The user bubble should show the suggestion text
-      const userBubble = page.locator('.max-w-\\[80%\\]').first();
+      const userBubble = page.getByRole('article', { name: 'User message' }).first();
       await expect(userBubble).toContainText(suggestion);
 
       // Wait for the assistant answer to appear, then clear for next iteration
@@ -179,7 +182,7 @@ test.describe('Chat flow', () => {
       ).toBeVisible({ timeout: 10000 });
 
       // Clear conversation to reset to empty state for the next suggestion
-      await page.getByText('Clear conversation').click();
+      await page.getByRole('button', { name: 'Clear conversation' }).click();
     }
   });
 });

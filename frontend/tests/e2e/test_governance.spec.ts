@@ -198,7 +198,7 @@ test.describe('Governance & Approval', () => {
     ).toBeVisible({ timeout: 10000 });
 
     // Click on evidence source link in the bubble
-    const evidenceLink = page.getByText('1 evidence source');
+    const evidenceLink = page.getByRole('button', { name: '1 evidence source' });
     await expect(evidenceLink).toBeVisible();
     await evidenceLink.click();
 
@@ -246,7 +246,7 @@ test.describe('Governance & Approval', () => {
     ).toBeVisible({ timeout: 10000 });
 
     // The floating button should show "Evidence (1)"
-    const floatingBtn = page.getByText('Evidence (1)');
+    const floatingBtn = page.getByRole('button', { name: 'Evidence (1)' });
     await expect(floatingBtn).toBeVisible();
   });
 
@@ -255,14 +255,14 @@ test.describe('Governance & Approval', () => {
     await expect(page.getByText('LLM Model')).toBeVisible();
 
     // The select element should be present
-    const modelSelect = page.locator('#model-select');
+    const modelSelect = page.getByLabel('LLM Model');
     await expect(modelSelect).toBeVisible();
 
     // It should have the default model selected
     await expect(modelSelect).toHaveValue('qwen2.5:7b');
 
     // All model options should be present
-    const options = await modelSelect.locator('option').allTextContents();
+    const options = await modelSelect.getByRole('option').allTextContents();
     expect(options).toEqual([
       'qwen2.5:7b',
       'qwen2.5:14b',
