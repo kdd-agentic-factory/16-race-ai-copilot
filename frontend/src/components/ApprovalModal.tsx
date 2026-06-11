@@ -20,7 +20,12 @@ export default function ApprovalModal() {
       />
 
       {/* Modal */}
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="approval-modal-title"
+        className="relative bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col"
+      >
         {/* Header */}
         <div className="flex items-center gap-3 px-6 pt-5 pb-4 border-b border-zinc-800">
           <div
@@ -41,7 +46,10 @@ export default function ApprovalModal() {
             </svg>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-zinc-100">
+            <h2
+              id="approval-modal-title"
+              className="text-lg font-semibold text-zinc-100"
+            >
               Crew Chief Approval Required
             </h2>
             <p className="text-sm text-zinc-400">

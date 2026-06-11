@@ -103,8 +103,12 @@ test.describe('Governance & Approval', () => {
     });
     await expect(modal).toBeVisible({ timeout: 10000 });
 
+    const approvalDialog = page.getByRole('dialog', {
+      name: 'Crew Chief Approval Required',
+    });
+
     // The proposed tool call should be visible inside the modal
-    await expect(page.getByText('setup.apply_change')).toBeVisible();
+    await expect(approvalDialog.getByText('setup.apply_change')).toBeVisible();
 
     // The Approve & Execute and Reject buttons should be visible
     await expect(
@@ -114,11 +118,13 @@ test.describe('Governance & Approval', () => {
 
     // Response preview should show the answer
     await expect(
-      page.getByText(APPROVAL_REQUIRED_RESPONSE.answer),
+      approvalDialog.getByText(APPROVAL_REQUIRED_RESPONSE.answer),
     ).toBeVisible();
 
     // Recommendations should also appear in the modal
-    await expect(page.getByText('Deploy front wing -1.5°')).toBeVisible();
+    await expect(
+      approvalDialog.getByText('Deploy front wing -1.5°'),
+    ).toBeVisible();
   });
 
   test('Reject button closes the approval modal', async ({ page }) => {
@@ -207,13 +213,17 @@ test.describe('Governance & Approval', () => {
       page.getByRole('heading', { name: 'Evidence' }),
     ).toBeVisible();
 
+    const evidenceDrawer = page.getByRole('complementary', {
+      name: 'Evidence drawer',
+    });
+
     // The evidence snippet should be visible inside the drawer
     await expect(
-      page.getByText('Front rebound damping is 25% above optimal range'),
+      evidenceDrawer.getByText('Front rebound damping is 25% above optimal range'),
     ).toBeVisible();
 
     // Groundedness score should be displayed
-    await expect(page.getByText('78%')).toBeVisible();
+    await expect(evidenceDrawer.getByText('78%', { exact: true })).toBeVisible();
 
     // Close the drawer using the close button
     await page.getByRole('button', { name: 'Close evidence drawer' }).click();

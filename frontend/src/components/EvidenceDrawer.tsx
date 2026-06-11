@@ -34,6 +34,9 @@ export default function EvidenceDrawer({
 
       {/* Slide-over panel */}
       <aside
+        role="complementary"
+        aria-label="Evidence drawer"
+        aria-hidden={!isOpen}
         className={`
           fixed top-0 right-0 h-full w-80 max-w-[85vw] z-40
           bg-zinc-900 border-l border-zinc-800
