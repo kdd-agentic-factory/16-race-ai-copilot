@@ -6,21 +6,35 @@ on:
     branches:
       - main
 
+# NOTE: reusable workflows from the private 12-ci-cd-security repo are NOT
+# resolvable from public repos (runs die at compile time with 0 jobs). Docker
+# job inlined, same pattern as 00/07/17. The image must match fly.toml: build
+# from the repo-root multi-stage Dockerfile (context "."). Restore the
+# reusables if 12-ci-cd-security is ever made public.
 jobs:
-  python-ci:
-    uses: kdd-agentic-factory/12-ci-cd-security/.github/workflows/reusable-python-ci.yml@main
-    with:
-      python-version: "3.12"
-      working-directory: "backend"
-
-  security:
-    uses: kdd-agentic-factory/12-ci-cd-security/.github/workflows/reusable-security-scan.yml@main
-
   docker:
-    uses: kdd-agentic-factory/12-ci-cd-security/.github/workflows/reusable-docker-build.yml@main
-    with:
-      image-name: race-ai-copilot
-      context: "backend"
-      push: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-    secrets:
-      registry-token: ${{ secrets.GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/kdd-agentic-factory/race-ai-copilot
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
