@@ -46,3 +46,5 @@ docker-compose*.yml
 uvicorn_*.log
 copilot_conversations.db
 .env.production.example
+
+**/node_modules/

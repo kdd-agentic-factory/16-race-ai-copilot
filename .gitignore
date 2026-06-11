@@ -8,3 +8,5 @@ ollama_models/
 
 # InsForge deploy temp env file
 .env.insforge-compute
+
+node_modules/
