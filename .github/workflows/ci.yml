@@ -14,17 +14,16 @@ on:
 jobs:
   python-ci:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install -r requirements.txt pytest pytest-asyncio httpx
+        run: pip install -r backend/requirements.txt -r services/copilot-api/requirements.txt pytest pytest-asyncio httpx
       - name: Pytest
+        # Suite runs from the repo root: pytest.ini sets pythonpath
+        # (services/copilot-api + backend/src) and testpaths=tests.
         run: python -m pytest -q
 
   docker:
