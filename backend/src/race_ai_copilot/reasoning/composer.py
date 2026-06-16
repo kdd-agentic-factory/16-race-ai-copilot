@@ -56,6 +56,24 @@ class AnswerComposer:
         When *stream* is ``True`` the caller receives an async generator
         that yields tokens as they arrive from Ollama.
         """
-        if stream:
-            return self.llm_client.generate_stream(prompt)
-        return await self.llm_client.generate(prompt)
+        try:
+            if stream:
+                return self.llm_client.generate_stream(prompt)
+            return await self.llm_client.generate(prompt)
+        except Exception:
+            if stream:
+                async def _fallback_stream():
+                    yield self._fallback_text(prompt)
+
+                return _fallback_stream()
+            return self._fallback_text(prompt)
+
+    def _fallback_text(self, prompt: str) -> str:
+        return (
+            "Direct answer: The model endpoint is unavailable, so this response falls back to deterministic, read-only guidance.\n\n"
+            "Evidence: No live LLM generation was available; use the retrieved evidence and tenant context.\n"
+            "Interpretation: the copilot remains recommendation-oriented and does not execute operations directly.\n"
+            "Recommended action: Continue with evidence-backed analysis and governed approval flow.\n"
+            "Approval status: not_required.\n"
+            "Next step: Retry once the model endpoint is reachable."
+        )

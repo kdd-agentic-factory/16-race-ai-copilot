@@ -57,6 +57,7 @@ _DDL = """
 CREATE TABLE IF NOT EXISTS conversation_turns (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     conversation_id TEXT NOT NULL,
+    tenant_id       TEXT NOT NULL DEFAULT 'tenant-default',
     session_id      TEXT,
     role            TEXT NOT NULL,
     content         TEXT NOT NULL,
@@ -71,6 +72,7 @@ _DDL_PG = """
 CREATE TABLE IF NOT EXISTS conversation_turns (
     id              BIGSERIAL PRIMARY KEY,
     conversation_id TEXT NOT NULL,
+    tenant_id       TEXT NOT NULL DEFAULT 'tenant-default',
     session_id      TEXT,
     role            TEXT NOT NULL,
     content         TEXT NOT NULL,
@@ -88,6 +90,7 @@ async def init_conversation_db() -> None:
             stmt = stmt.strip()
             if stmt:
                 await conn.execute(text(stmt))
+        await _ensure_tenant_column(conn)
     logger.info("Conversation DB ready (%s)", "sqlite" if _is_sqlite else "postgres")
 
 
@@ -95,6 +98,8 @@ async def save_turn(
     conversation_id: str,
     role: str,
     content: str,
+    *,
+    tenant_id: str = "tenant-default",
     session_id: str = None,
     metadata: Dict = None,
     created_at: str = None,
@@ -106,12 +111,13 @@ async def save_turn(
         await db.execute(
             text("""
                 INSERT INTO conversation_turns
-                    (conversation_id, session_id, role, content, metadata, created_at)
+                    (conversation_id, tenant_id, session_id, role, content, metadata, created_at)
                 VALUES
-                    (:conv_id, :session_id, :role, :content, :meta, :ts)
+                    (:conv_id, :tenant_id, :session_id, :role, :content, :meta, :ts)
             """),
             {
                 "conv_id": conversation_id,
+                "tenant_id": tenant_id,
                 "session_id": session_id,
                 "role": role,
                 "content": content,
@@ -122,18 +128,39 @@ async def save_turn(
         await db.commit()
 
 
-async def load_history(conversation_id: str, max_turns: int = 20) -> List[Dict[str, str]]:
+async def load_history(conversation_id: str, tenant_id: str = "tenant-default", max_turns: int = 20) -> List[Dict[str, str]]:
     """Return the last ``max_turns`` turns as a list of {role, content} dicts."""
     async with _SessionLocal() as db:
         result = await db.execute(
             text("""
                 SELECT role, content FROM conversation_turns
-                WHERE conversation_id = :conv_id
+                WHERE conversation_id = :conv_id AND tenant_id = :tenant_id
                 ORDER BY id DESC
                 LIMIT :limit
             """),
-            {"conv_id": conversation_id, "limit": max_turns},
+            {"conv_id": conversation_id, "tenant_id": tenant_id, "limit": max_turns},
         )
         rows = result.fetchall()
     # Reverse to get chronological order
     return [{"role": r.role, "content": r.content} for r in reversed(rows)]
+
+
+async def _ensure_tenant_column(conn) -> None:
+    if _is_sqlite:
+        result = await conn.execute(text("PRAGMA table_info(conversation_turns)"))
+        columns = {row[1] for row in result.fetchall()}
+        if "tenant_id" not in columns:
+            await conn.execute(text("ALTER TABLE conversation_turns ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-default'"))
+        return
+
+    result = await conn.execute(
+        text(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'conversation_turns' AND column_name = 'tenant_id'
+            """
+        )
+    )
+    if result.fetchone() is None:
+        await conn.execute(text("ALTER TABLE conversation_turns ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'tenant-default'"))

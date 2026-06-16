@@ -6,15 +6,20 @@ Exposes ``POST /chat`` that accepts a ``ChatRequest`` and returns a
 
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 
-from ..auth_deps import Principal, get_current_principal
+from ..auth_deps import Principal, get_current_principal, get_request_context
+from ..contracts import RequestContext
 from ..models.schemas import ChatRequest, ChatResponse
 from ..services.chat_service import ChatService
+from ..services.ui_adapter_service import UIAdapterService
 
 router = APIRouter(tags=["chat"])
+_UI_ADAPTER_SERVICE = UIAdapterService()
 
 
 async def get_chat_service() -> ChatService:
@@ -32,6 +37,7 @@ async def chat(
     request: ChatRequest,
     service: Annotated[ChatService, Depends(get_chat_service)],
     principal: Annotated[Principal, Depends(get_current_principal)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
 ) -> ChatResponse:
     """Process a chat message through the full reasoning pipeline.
 
@@ -47,4 +53,31 @@ async def chat(
         200: Success — the answer was generated.
         403: The caller lacks the required role to grant approval.
     """
-    return await service.answer(request, principal=principal)
+    return await service.answer(request, principal=principal, request_context=request_context)
+
+
+@router.post("/chat/poll", response_model=ChatResponse)
+async def chat_poll(
+    request: ChatRequest,
+    service: Annotated[ChatService, Depends(get_chat_service)],
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
+) -> ChatResponse:
+    return await service.answer(request, principal=principal, request_context=request_context)
+
+
+@router.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    service: Annotated[ChatService, Depends(get_chat_service)],
+    principal: Annotated[Principal, Depends(get_current_principal)],
+    request_context: Annotated[RequestContext, Depends(get_request_context)],
+):
+    response = await service.answer(request, principal=principal, request_context=request_context)
+
+    async def _events():
+        for event in _UI_ADAPTER_SERVICE.stream_events(response):
+            yield event
+            await asyncio.sleep(0)
+
+    return StreamingResponse(_events(), media_type="text/event-stream")

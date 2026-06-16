@@ -13,7 +13,7 @@ This repository implements the Race AI Copilot for the KDD agentic factory.
 
 ## Local Boundaries
 
-- API code lives in `services/copilot-api`.
+- API code lives in `backend/src/race_ai_copilot`; `services/copilot-api/app` is a frozen compatibility shim.
 - Cross-platform clients live in `integrations`.
 - Prompt and policy assets are versioned under `prompts` and `policies`.
 - Schemas are versioned under `data-contracts`.

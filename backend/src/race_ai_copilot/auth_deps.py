@@ -24,6 +24,8 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
 
+from .contracts import ApprovalScope, RequestContext
+
 
 @dataclass(frozen=True)
 class Principal:
@@ -97,6 +99,73 @@ async def get_current_principal(request: Request) -> Principal:
         or _local_dev_principal()
     )
     return principal
+
+
+def _resolve_tenant_id(request: Request, principal: Principal | None) -> str:
+    return (
+        request.headers.get("X-Tenant-ID")
+        or request.headers.get("X-Tenant-Id")
+        or (principal.claims.get("tenant_id") if principal else None)
+        or (principal.claims.get("tenant") if principal else None)
+        or "tenant-default"
+    )
+
+
+def _resolve_approval_scope(request: Request, principal: Principal | None) -> ApprovalScope:
+    raw_scope = (
+        request.headers.get("X-Approval-Scope")
+        or (principal.claims.get("approval_scope") if principal else None)
+    )
+    if raw_scope:
+        return ApprovalScope(raw_scope)
+    return ApprovalScope.approve if principal and principal.is_crew_chief else ApprovalScope.propose
+
+
+def build_request_context(
+    *,
+    tenant_id: str,
+    principal: Principal | None = None,
+    user_role: str | None = None,
+    approval_scope: ApprovalScope | str | None = None,
+    session_id: str | None = None,
+    request_id: str | None = None,
+    correlation_id: str | None = None,
+    metadata: dict | None = None,
+) -> RequestContext:
+    """Build a canonical request context for downstream services."""
+    resolved_role = user_role or (principal.role if principal else "viewer")
+    resolved_scope = ApprovalScope(
+        approval_scope
+        or ("approve" if principal and principal.is_crew_chief else "propose")
+    )
+    return RequestContext.from_values(
+        tenant_id=tenant_id,
+        user_role=resolved_role,
+        approval_scope=resolved_scope,
+        request_id=request_id,
+        session_id=session_id,
+        correlation_id=correlation_id,
+        metadata=metadata,
+    )
+
+
+async def get_request_context(request: Request, principal: Principal = Depends(get_current_principal)) -> RequestContext:
+    """FastAPI dependency that resolves the canonical request context."""
+    tenant_id = _resolve_tenant_id(request, principal)
+    approval_scope = _resolve_approval_scope(request, principal)
+    return build_request_context(
+        tenant_id=tenant_id,
+        principal=principal,
+        user_role=request.headers.get("X-User-Role") or principal.role,
+        approval_scope=approval_scope,
+        session_id=request.headers.get("X-Session-ID"),
+        request_id=request.headers.get("X-Request-ID"),
+        correlation_id=request.headers.get("X-Correlation-ID"),
+        metadata={
+            "path": request.url.path,
+            "method": request.method,
+        },
+    )
 
 
 def require_role(*roles: str):

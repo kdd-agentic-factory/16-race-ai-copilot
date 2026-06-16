@@ -49,9 +49,22 @@ from .reasoning.evidence_planner import EvidenceBuilder
 from .reasoning.intent_classifier import IntentClassifier
 from .reasoning.tool_planner import ToolPlanner
 from .conversation_store import init_conversation_db
+from .routers import command_center as command_center_router
 from .routers import chat as chat_router
 from .routers import health as health_router
+from .routers import observability as observability_router
+from .routers import legacy as legacy_router
+from .routers import ui as ui_router
+from .routers import tickets as tickets_router
+from .routers import war_room as war_room_router
+from .services.command_center_service import CommandCenterService
 from .services.chat_service import ChatService
+from .services.observability_service import ObservabilityService
+from .services.template_service import FileTemplateService
+from .services.ui_adapter_service import UIAdapterService
+from .services.smart_queue_service import SmartQueueService
+from .services.sla_war_room_service import SlaWarRoomService
+from .services.ticket_copilot_service import TicketCopilotService
 
 # ------------------------------------------------------------------
 # Lifespan — initialise / tear down resources
@@ -87,6 +100,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     evidence_builder = EvidenceBuilder()
     prompt_builder = PromptBuilder()
     answer_composer = AnswerComposer(llm_client=ollama_client)
+    template_service = FileTemplateService()
+    observability_service = ObservabilityService()
+    ui_adapter_service = UIAdapterService()
 
     # ---- Guardrails ----
     approval_guard = ApprovalGuard()
@@ -112,9 +128,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         evidence_guard=evidence_guard,
         decision_guard=decision_guard,
     )
+    command_center_service = CommandCenterService()
+    smart_queue_service = SmartQueueService()
+    ticket_copilot_service = TicketCopilotService()
+    war_room_service = SlaWarRoomService()
 
     # ---- Store in app.state for dependency injection ----
     app.state.chat_service = chat_service
+    app.state.command_center_service = command_center_service
+    app.state.observability_service = observability_service
+    app.state.template_service = template_service
+    app.state.ui_adapter_service = ui_adapter_service
+    app.state.smart_queue_service = smart_queue_service
+    app.state.ticket_copilot_service = ticket_copilot_service
+    app.state.war_room_service = war_room_service
     app.state.safety_policy = safety_policy
     app.state.settings = settings
 
@@ -122,7 +149,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async def _get_chat_service() -> ChatService:
         return chat_service
 
+    async def _get_command_center_service() -> CommandCenterService:
+        return command_center_service
+
+    async def _get_smart_queue_service() -> SmartQueueService:
+        return smart_queue_service
+
+    async def _get_ticket_copilot_service() -> TicketCopilotService:
+        return ticket_copilot_service
+
+    async def _get_war_room_service() -> SlaWarRoomService:
+        return war_room_service
+
+    async def _get_observability_service() -> ObservabilityService:
+        return observability_service
+
     app.dependency_overrides[chat_router.get_chat_service] = _get_chat_service
+    app.dependency_overrides[command_center_router.get_command_center_service] = _get_command_center_service
+    app.dependency_overrides[observability_router.get_observability_service] = _get_observability_service
+    app.dependency_overrides[tickets_router.get_smart_queue_service] = _get_smart_queue_service
+    app.dependency_overrides[tickets_router.get_ticket_copilot_service] = _get_ticket_copilot_service
+    app.dependency_overrides[war_room_router.get_war_room_service] = _get_war_room_service
 
     yield
 
@@ -208,7 +255,13 @@ async def _generic_handler(request: Request, exc):
     )
 
 app.include_router(health_router.router)
+app.include_router(legacy_router.router)
 app.include_router(chat_router.router, prefix="/api/v1")
+app.include_router(command_center_router.router, prefix="/api/v1/integrations/race-command-center")
+app.include_router(observability_router.router, prefix="/api/v1")
+app.include_router(ui_router.router, prefix="/api/v1")
+app.include_router(tickets_router.router, prefix="/api/v1")
+app.include_router(war_room_router.router, prefix="/api/v1/integrations/race-command-center")
 
 _configure_otel(app)
 
@@ -242,7 +295,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "backend.src.race_ai_copilot.main:app",
+        "race_ai_copilot.main:app",
         host="0.0.0.0",
         port=8160,
         reload=True,

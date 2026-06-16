@@ -3,6 +3,22 @@ from typing import Any, Dict, List, Optional
 from .approval_guard import ApprovalGuard
 from .evidence_required_guard import EvidenceRequiredGuard
 from .race_decision_guard import RaceDecisionGuard
+from ..contracts import TypedMCPToolCall
+
+
+CRITICAL_TOOL_MARKERS = (
+    "setup.",
+    "parts.",
+    "simulation.",
+    "reporting.publish",
+    "orchestrator.execute",
+    "mcp_gateway.execute",
+    "write",
+    "apply",
+    "change",
+    "delete",
+    "create",
+)
 
 
 class SafetyPolicy:
@@ -68,3 +84,32 @@ class SafetyPolicy:
             "sanitized_answer": sanitized_answer,
             "all_passed": all_passed,
         }
+
+    def check_tool_call(
+        self,
+        tool_call: TypedMCPToolCall,
+        approval_granted: bool = False,
+    ) -> Dict[str, Any]:
+        """Validate whether a typed MCP tool call may proceed."""
+        approval_required = self._tool_requires_approval(tool_call)
+        blocked = approval_required and not approval_granted
+        reason = (
+            "Critical MCP tool calls require governed approval before execution."
+            if blocked
+            else "Tool call is read-only or already governed by approval scope."
+        )
+
+        return {
+            "approval_required": approval_required,
+            "blocked": blocked,
+            "reason": reason,
+            "tool_call": tool_call.model_dump(),
+            "audit": tool_call.audit.model_dump(),
+        }
+
+    def _tool_requires_approval(self, tool_call: TypedMCPToolCall) -> bool:
+        if tool_call.approval_required or tool_call.audit.critical:
+            return True
+
+        tool_name = tool_call.tool_name.lower()
+        return any(marker in tool_name for marker in CRITICAL_TOOL_MARKERS)

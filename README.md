@@ -30,7 +30,7 @@ This repository is designed as an operational copilot, not a plain chat box. Eve
 
 ## API
 
-The MVP API is implemented in `services/copilot-api` and exposes:
+The canonical MVP API is implemented in `backend/src/race_ai_copilot` and exposes:
 
 - `GET /health`
 - `POST /chat`
@@ -44,6 +44,8 @@ The MVP API is implemented in `services/copilot-api` and exposes:
 
 `15-race-command-center` should use the dedicated integration endpoint for its `AI Copilot` panel. The endpoint accepts Command Center context such as session, stint, circuit, base setup, proposed setup, and vehicle metadata, then returns an evidence-gated `CopilotResponse` with proposed calls through RAG/CAG, MCP Gateway, Agent Orchestrator, and Command Center APIs.
 
+`services/copilot-api/app` remains as a frozen compatibility shim for older launch commands.
+
 ## Run Locally
 
 ```bash
@@ -52,18 +54,18 @@ docker compose -f docker-compose.copilot.yml up --build
 
 Services:
 
-- API: `http://localhost:8050`
+- API: `http://localhost:8160`
 - OpenWebUI: `http://localhost:8088`
 - Ollama: `http://localhost:11434`
 
 ## Development
 
 ```bash
-cd services/copilot-api
+cd backend
 python -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8050 --reload
+uvicorn race_ai_copilot.main:app --host 0.0.0.0 --port 8160 --reload
 ```
 
 ## Safety Principles

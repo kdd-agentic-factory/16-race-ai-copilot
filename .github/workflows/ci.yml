@@ -20,10 +20,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install -r backend/requirements.txt -r services/copilot-api/requirements.txt pytest pytest-asyncio httpx
+        run: pip install -r backend/requirements.txt pytest pytest-asyncio httpx
       - name: Pytest
         # Suite runs from the repo root: pytest.ini sets pythonpath
-        # (services/copilot-api + backend/src) and testpaths=tests.
+        # (backend/src + services/copilot-api shim) and testpaths=tests.
         run: python -m pytest -q
 
   docker:

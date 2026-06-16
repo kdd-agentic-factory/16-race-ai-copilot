@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     )
     enable_evidence_guard: bool = Field(
         default=True, alias="ENABLE_EVIDENCE_GUARD"
+    )
+
+    # --- Legacy compatibility / health probe ---
+    default_model: str = Field(
+        default="race-copilot",
+        validation_alias=AliasChoices("COPILOT_DEFAULT_MODEL", "DEFAULT_MODEL"),
     )
 
     model_config = {"env_file": ".env", "extra": "ignore"}

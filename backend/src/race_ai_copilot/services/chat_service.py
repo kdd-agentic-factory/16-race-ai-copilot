@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, status
 
 from ..auth_deps import Principal
+from ..contracts import RequestContext
 from ..clients.mcp_client import MCPClient
 from ..clients.rag_cag_client import RAGCAGClient
 from ..conversation_store import load_history, save_turn
@@ -83,6 +84,7 @@ class ChatService:
         self,
         request: ChatRequest,
         principal: Optional[Principal] = None,
+        request_context: RequestContext | None = None,
     ) -> ChatResponse:
         """Execute the full chat pipeline for a single request.
 
@@ -125,13 +127,15 @@ class ChatService:
         message_id = generate_id()
 
         # ── Step 1b: Load conversation history from DB ───────────────
-        history = await load_history(conversation_id, max_turns=10)
+        tenant_id = request_context.tenant_id if request_context else "tenant-default"
+        history = await load_history(conversation_id, tenant_id=tenant_id, max_turns=10)
 
         # Persist the incoming user turn immediately
         await save_turn(
             conversation_id=conversation_id,
             role="user",
             content=request.message,
+            tenant_id=tenant_id,
             session_id=request.session_id,
         )
 
@@ -221,7 +225,7 @@ class ChatService:
         # ── Step 9: Generate answer ──────────────────────────────────
         raw_answer: str = await self.answer_composer.compose(
             prompt=prompt,
-            stream=request.stream,
+            stream=False,
         )
 
         # ── Step 10: Sanitize with RaceDecisionGuard ─────────────────
@@ -278,6 +282,7 @@ class ChatService:
             conversation_id=conversation_id,
             role="assistant",
             content=sanitized_answer,
+            tenant_id=tenant_id,
             session_id=request.session_id,
         )
 

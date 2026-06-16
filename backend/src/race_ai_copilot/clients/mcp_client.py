@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+from typing import Any, Dict
+
 import httpx
-from typing import Dict, Any
+
+from ..contracts import TypedMCPToolCall
 
 
 class MCPClient:
@@ -30,3 +35,19 @@ class MCPClient:
             )
             response.raise_for_status()
             return response.json()
+
+    async def call_typed_tool(self, tool_call: TypedMCPToolCall) -> Dict[str, Any]:
+        """Call an MCP tool with tenancy and audit metadata included."""
+        payload = {
+            "arguments": tool_call.arguments,
+            "tenant_id": tool_call.audit.tenant_id,
+            "user_role": tool_call.audit.user_role,
+            "approval_scope": tool_call.audit.request_scope.value,
+            "request_id": tool_call.audit.request_id,
+            "session_id": tool_call.audit.session_id,
+            "correlation_id": tool_call.audit.correlation_id,
+            "source": tool_call.audit.source,
+            "approved": tool_call.audit.approved,
+            "critical": tool_call.audit.critical,
+        }
+        return await self.call_tool(tool_call.tool_name, payload)

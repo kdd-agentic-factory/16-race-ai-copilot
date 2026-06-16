@@ -6,11 +6,13 @@ version, and timestamp.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import APIRouter
 
+from ..config import get_settings
+from ..services.legacy_surface_service import LegacySurfaceService
+
 router = APIRouter(tags=["health"])
+_LEGACY_SURFACE_SERVICE = LegacySurfaceService()
 
 
 @router.get("/health")
@@ -20,8 +22,5 @@ async def health_check():
     Responses:
         200: Service is healthy and ready to accept requests.
     """
-    return {
-        "status": "healthy",
-        "version": "0.1.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+    settings = get_settings()
+    return _LEGACY_SURFACE_SERVICE.build_health(settings.default_model)
