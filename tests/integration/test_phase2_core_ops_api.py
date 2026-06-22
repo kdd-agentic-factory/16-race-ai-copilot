@@ -35,6 +35,33 @@ def test_command_center_integration_route_returns_proposed_tool_calls():
     assert "operational" in body["next_step"].lower()
 
 
+def test_command_center_integration_route_marks_blueprint_design_as_part_design():
+    payload = {
+        "context": {
+            "tenant": {
+                "tenant_id": "tenant-42",
+                "user_role": "designer",
+                "approval_scope": "propose",
+            },
+            "request_id": "req-bp-1",
+            "session_id": "ses-bp-1",
+        },
+        "reporting": {"report_type": "blueprint_design_brief", "report_id": "rpt-bp-1"},
+        "query": "Generate a Blueprint design brief for the rear tire cooling duct",
+        "command_center_id": "part-tire-duct",
+        "vehicle_context": {"part_context": {"part_id": "part-tire-duct", "name": "Rear Tire Cooling Duct"}},
+    }
+
+    response = client.post("/api/v1/integrations/race-command-center/chat", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert any(call["tool"] == "agent_orchestrator.plan" for call in body["tool_calls"])
+    assert any(call["tool"] == "mcp_gateway.dispatch" for call in body["tool_calls"])
+    assert body["approval"]["required"] is True
+    assert any(rec["type"] == "part_design" for rec in body["recommendations"])
+
+
 def test_sla_war_room_integration_route_returns_escalation_cohorts():
     payload = {
         "context": {
