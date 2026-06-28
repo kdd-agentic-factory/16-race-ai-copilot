@@ -36,7 +36,7 @@ export default function ChatInput() {
   }
 
   return (
-    <div className="border-t border-zinc-800 bg-zinc-950/80 backdrop-blur-sm">
+    <div className="border-t border-zinc-800 bg-zinc-950">
       <div className="max-w-4xl mx-auto px-4 py-3">
         <div className="flex items-end gap-2">
           <div className="flex-1 relative">
@@ -63,7 +63,7 @@ export default function ChatInput() {
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
             className="shrink-0 rounded-xl bg-red-600 p-3 text-white
-                       hover:bg-red-500 disabled:bg-zinc-800 disabled:text-zinc-600
+                       hover:bg-red-500 disabled:bg-zinc-800 disabled:text-white/55
                        transition-colors disabled:cursor-not-allowed"
             aria-label="Send message"
           >

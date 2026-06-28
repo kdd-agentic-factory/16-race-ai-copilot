@@ -89,9 +89,9 @@ export default function MessageList() {
           <div className="flex justify-start mb-4">
             <div className="rounded-2xl rounded-bl-md px-4 py-3 bg-zinc-900 border border-zinc-800">
               <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:0ms]" />
-                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:150ms]" />
-                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse [animation-delay:0ms]" />
+                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse [animation-delay:150ms]" />
+                <span className="w-2 h-2 bg-zinc-500 rounded-full animate-pulse [animation-delay:300ms]" />
               </div>
             </div>
           </div>

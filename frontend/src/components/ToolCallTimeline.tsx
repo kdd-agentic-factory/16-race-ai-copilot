@@ -25,15 +25,15 @@ export default function ToolCallTimeline({ calls }: ToolCallTimelineProps) {
   if (!calls || calls.length === 0) return null
 
   return (
-    <div className="mt-4 pl-2 border-l-2 border-zinc-700 space-y-3">
+    <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3 space-y-3">
       <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
         Tool Calls
       </span>
       {calls.map((call, idx) => (
-        <div key={`${call.tool_name}-${idx}`} className="relative pl-4">
+        <div key={`${call.tool_name}-${idx}`} className="relative pl-6">
           {/* Dot on timeline */}
           <span
-            className="absolute -left-[9px] top-1 w-4 h-4 rounded-full
+            className="absolute left-0 top-1 w-4 h-4 rounded-full
                        bg-zinc-800 border-2 border-zinc-600
                        flex items-center justify-center"
           >
