@@ -2,9 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── KDD Design System tokens (canonical: 13-ui-command-center) */
+:root {
+  color-scheme: dark;
+  --bg-base:     #0B0D12;
+  --bg-surface:  #111318;
+  --bg-card:     #181C24;
+  --bg-hover:    #1E2330;
+  --border:      rgba(255,255,255,0.10);
+  --border-mid:  rgba(255,255,255,0.12);
+  --text:        #E6EAF4;
+  --text-dim:    #8B92A8;
+  --text-muted:  #757E92;
+  --accent:      #E03737;
+  --accent-dim:  rgba(224,55,55,0.12);
+  --green:       #22C55E;
+  --green-dim:   rgba(34,197,94,0.10);
+  --yellow:      #F59E0B;
+  --blue:        #3B82F6;
+  --orange:      #F97316;
+  --cyan:        #00B7FF;
+  --cyan-dim:    rgba(0,183,255,0.10);
+  --font-display: 'Barlow Condensed', 'Rajdhani', system-ui, sans-serif;
+  --font-sans:    'Barlow', 'Rajdhani', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+  --radius:       6px;
+  --radius-lg:    10px;
+}
+
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
-  font-family: 'Barlow', 'Rajdhani', system-ui, -apple-system, sans-serif;
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 *::-webkit-scrollbar {
@@ -12,13 +42,14 @@ body {
 }
 
 *::-webkit-scrollbar-track {
-  @apply bg-transparent;
+  background: transparent;
 }
 
 *::-webkit-scrollbar-thumb {
-  @apply bg-zinc-700 rounded-full;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.12);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  @apply bg-zinc-600;
+  background: rgba(255,255,255,0.18);
 }
