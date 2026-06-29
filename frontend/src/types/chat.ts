@@ -36,6 +36,7 @@ export interface ChatRequest {
   model?: string | null
   require_evidence?: boolean
   stream?: boolean
+  approval_granted?: boolean
   context?: Record<string, unknown>
 }
 
