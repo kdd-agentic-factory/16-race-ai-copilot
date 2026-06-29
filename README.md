@@ -71,3 +71,17 @@ uvicorn race_ai_copilot.main:app --host 0.0.0.0 --port 8160 --reload
 ## Safety Principles
 
 The copilot must never invent telemetry evidence. High-risk setup, strategy, deployment, Kubernetes, and GitHub actions require human approval and should be requested through the orchestrator rather than executed directly.
+
+## Tradeoffs
+
+### Token handling: local JWT validation vs. auth API verification
+
+**What**: JWT tokens are validated locally using HS256 with a shared secret (`JWT_SECRET` env var). No HTTP call to InsForge Auth API on every request.
+
+**Why**: Reduces latency (no extra HTTP round-trip per request) and works offline. The shared secret is set during deployment and rotates with the service.
+
+**Risk**: If a token is revoked server-side, the copilot won't detect it until the token expires. This is acceptable for a racing environment where sessions are short-lived (typically < 2 hours).
+
+**Mitigation**: Token expiry is enforced. For critical operations (e.g., proposing setup changes to the crew chief), the copilot can call the auth API explicitly to verify token validity.
+
+**Alternative considered**: Verify against InsForge Auth API on every request — rejected due to latency impact in real-time racing context where sub-second responses matter.
