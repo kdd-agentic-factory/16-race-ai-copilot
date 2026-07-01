@@ -5,7 +5,7 @@ import type {
   ChatResponse,
   SessionContext,
 } from '../types/chat'
-import { sendMessage as apiSendMessage, sendMessageStream } from '../api/chat'
+import { sendMessageStream } from '../api/chat'
 
 let messageCounter = 0
 function nextId(): string {
